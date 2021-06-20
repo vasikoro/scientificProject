@@ -42,6 +42,8 @@ if __name__ == '__main__':
         struct_log, parse_dates=True, index_col="created_at"
     )
 
+    df.fillna(value='', inplace=True)
+
     # split df to df_train and df_test
     df_train, df_test = train_test_split(df, test_size=0.2)
 
@@ -89,7 +91,6 @@ if __name__ == '__main__':
 
     TIME_STEPS = 200
 
-
     # Generated training sequences for use in the model.
     def create_sequences(values, time_steps=TIME_STEPS):
         output = []
@@ -125,21 +126,23 @@ if __name__ == '__main__':
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001), loss="mse")
     model.summary()
 
-    # train_data = tf.data.Dataset.from_tensor_slices((trainMixed, trainVocals))
-    # valid_data = tf.data.Dataset.from_tensor_slices((testMixed, testVocals))
+    print(model.summary())
 
-    # model.fit(train_data, epochs=10, validation_data=valid_data)
+    train_data = tf.data.Dataset.from_tensor_slices((x_train, x_train))
+    valid_data = tf.data.Dataset.from_tensor_slices((x_train, x_train))
 
-    history = model.fit(
-        x_train,
-        x_train,
-        epochs=50,
-        batch_size=128,
-        validation_split=0.1,
-        callbacks=[
-            keras.callbacks.EarlyStopping(monitor="val_loss", patience=5, mode="min")
-        ],
-    )
+    history = model.fit(train_data, epochs=10, validation_data=valid_data)
+
+    # history = model.fit(
+    #     x_train,
+    #     x_train,
+    #     epochs=50,
+    #     batch_size=128,
+    #     validation_split=0.1,
+    #     callbacks=[
+    #         keras.callbacks.EarlyStopping(monitor="val_loss", patience=5, mode="min")
+    #     ],
+    # )
 
     plt.plot(history.history["loss"], label="Training Loss")
     plt.plot(history.history["val_loss"], label="Validation Loss")
