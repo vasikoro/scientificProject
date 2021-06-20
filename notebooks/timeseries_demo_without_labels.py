@@ -12,6 +12,7 @@ import texthero as hero
 from matplotlib import pyplot as plt
 from tensorflow import keras
 from tensorflow.keras import layers
+from sklearn.model_selection import train_test_split
 
 __all__ = [hero]
 
@@ -22,12 +23,12 @@ label_file = '../data/HDFS/anomaly_label.csv'  # The anomaly label file
 files = glob.glob("../data/DATA/*.csv")
 pathToCsvs = '../data/DATA'
 
-
 if __name__ == '__main__':
 
     # download the model
     embed = hub.load("https://tfhub.dev/google/universal-sentence-encoder-large/5")
 
+    # aggregate the data from multiple cvs and load them to the df
     df = pd.DataFrame()
     for f in files:
         csv = pd.read_csv(f)
@@ -37,13 +38,12 @@ if __name__ == '__main__':
     # shutil.rmtree(pathToCsvs)
     # os.mkdir(pathToCsvs)
 
-    df_train = pd.read_csv(
+    df = pd.read_csv(
         struct_log, parse_dates=True, index_col="created_at"
     )
 
-    df_test = pd.read_csv(
-        struct_log, parse_dates=True, index_col="created_at"
-    )
+    # split df to df_train and df_test
+    df_train, df_test = train_test_split(df, test_size=0.2)
 
     print(df_train.head())
 
@@ -58,7 +58,6 @@ if __name__ == '__main__':
     plt.show()
 
     # df_train['clean_text'] = (df_train['text'].pipe(hero.clean))
-
 
     # generate embeddings
     # train_embeddings = embed(df_train['clean_text'])
@@ -88,7 +87,8 @@ if __name__ == '__main__':
     print("Number of training samples:", len(df_training_value))
     print(df_training_value.values)
 
-    TIME_STEPS = 20
+    TIME_STEPS = 200
+
 
     # Generated training sequences for use in the model.
     def create_sequences(values, time_steps=TIME_STEPS):
