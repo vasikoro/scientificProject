@@ -4,15 +4,16 @@
 import glob
 import os
 import sys
-
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 import tensorflow_hub as hub
+import texthero as hero
 from matplotlib import pyplot as plt
 from tensorflow import keras
 from tensorflow.keras import layers
 
-__all__ = [hub]
+__all__ = [hero]
 
 sys.path.append('../')
 
@@ -20,9 +21,12 @@ struct_log = '../data/OutputDATA/aggregatedData.csv'  # The structured log file
 label_file = '../data/HDFS/anomaly_label.csv'  # The anomaly label file
 files = glob.glob("../data/DATA/*.csv")
 pathToCsvs = '../data/DATA'
-epsilon = 0.5  # threshold for estimating invariant space
+
 
 if __name__ == '__main__':
+
+    # download the model
+    embed = hub.load("https://tfhub.dev/google/universal-sentence-encoder-large/5")
 
     df = pd.DataFrame()
     for f in files:
@@ -41,9 +45,9 @@ if __name__ == '__main__':
         struct_log, parse_dates=True, index_col="created_at"
     )
 
-    print(df_train.head(1))
+    print(df_train.head())
 
-    print(df_test.head(1))
+    print(df_test.head())
 
     fig, ax = plt.subplots()
     df_train.plot(legend=False, ax=ax)
@@ -53,13 +57,16 @@ if __name__ == '__main__':
     df_test.plot(legend=False, ax=ax)
     plt.show()
 
-    # download the model
-    embed = hub.load("https://tfhub.dev/google/universal-sentence-encoder-large/5")
+    # df_train['clean_text'] = (df_train['text'].pipe(hero.clean))
+
+
     # generate embeddings
+    # train_embeddings = embed(df_train['clean_text'])
     train_embeddings = embed(df_train['text'])
+
     # create list from np arrays
-    use_to_train = []
-    use_to_train.extend(np.array(train_embeddings))
+
+    use_to_train = np.array(train_embeddings)
     # add lists as dataframe column
     df_train['use_to_train'] = [v for v in use_to_train]
 
@@ -73,7 +80,7 @@ if __name__ == '__main__':
     # training_std = df_train['use_to_train'].std()
     try:
 
-        df_training_value = (df_train['use_to_train'] - training_mean)
+        df_training_value = (df_train['use_to_train'])
         # df_training_value = (df_train['use_to_train'] - training_mean).div(training_std)
     except ZeroDivisionError:
         df_training_value = 0
@@ -82,7 +89,6 @@ if __name__ == '__main__':
     print(df_training_value.values)
 
     TIME_STEPS = 20
-
 
     # Generated training sequences for use in the model.
     def create_sequences(values, time_steps=TIME_STEPS):
@@ -93,6 +99,7 @@ if __name__ == '__main__':
 
 
     x_train = create_sequences(df_training_value.values[0])
+
     print("Training input shape: ", x_train.shape)
 
     model = keras.Sequential(
@@ -117,6 +124,11 @@ if __name__ == '__main__':
     )
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001), loss="mse")
     model.summary()
+
+    # train_data = tf.data.Dataset.from_tensor_slices((trainMixed, trainVocals))
+    # valid_data = tf.data.Dataset.from_tensor_slices((testMixed, testVocals))
+
+    # model.fit(train_data, epochs=10, validation_data=valid_data)
 
     history = model.fit(
         x_train,
@@ -152,7 +164,8 @@ if __name__ == '__main__':
     plt.plot(x_train_pred[0])
     plt.show()
 
-    df_test_value = (df_test - training_mean) / training_std
+    df_test_value = (df_test - training_mean)
+    # df_test_value = (df_test - training_mean) / training_std
     fig, ax = plt.subplots()
     df_test_value.plot(legend=False, ax=ax)
     plt.show()

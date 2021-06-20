@@ -3,4 +3,5 @@ numpy
 tensorflow
 matplotlib
 tensorflow_hub
-sklearn
+texthero
+gensim==3.8.3
