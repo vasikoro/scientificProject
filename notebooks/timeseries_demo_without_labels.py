@@ -22,11 +22,14 @@ struct_log = '../data/OutputDATA/aggregatedData.csv'  # The structured log file
 label_file = '../data/HDFS/anomaly_label.csv'  # The anomaly label file
 files = glob.glob("../data/DATA/*.csv")
 pathToCsvs = '../data/DATA'
+pathToModel = '../models/universal-sentence-encoder-large_5.tar.gz'
 
 if __name__ == '__main__':
 
     # download the model
     embed = hub.load("https://tfhub.dev/google/universal-sentence-encoder-large/5")
+    # or use the saved model
+    # embed = hub.load(pathToModel)
 
     # aggregate the data from multiple cvs and load them to the df
     df = pd.DataFrame()
@@ -48,7 +51,6 @@ if __name__ == '__main__':
     df_train, df_test = train_test_split(df, test_size=0.2)
 
     print(df_train.head())
-
     print(df_test.head())
 
     fig, ax = plt.subplots()
@@ -59,10 +61,7 @@ if __name__ == '__main__':
     df_test.plot(legend=False, ax=ax)
     plt.show()
 
-    # df_train['clean_text'] = (df_train['text'].pipe(hero.clean))
-
     # generate embeddings
-    # train_embeddings = embed(df_train['clean_text'])
     train_embeddings = embed(df_train['text'])
 
     # create list from np arrays
@@ -71,25 +70,23 @@ if __name__ == '__main__':
     # add lists as dataframe column
     df_train['use_to_train'] = [v for v in use_to_train]
 
-    # test_embeddings = embed(df_test['text'])  # create list from np arrays
-    # use_to_test = np.array(train_embeddings).tolist()  # add lists as dataframe column
-    # df['use_to_test'] = [v for v in use_to_test]
+    df_train['use_to_train'] = [(max(df_train['use_to_train'][i].tolist()) - min(df_train['use_to_train'][i].tolist()))
+                                for i in range(len(df_train['use_to_train'].tolist()))]
 
     # Normalize and save the mean and std we get,
     # for normalizing test data.
     training_mean = df_train['use_to_train'].mean()
-    # training_std = df_train['use_to_train'].std()
+    training_std = df_train['use_to_train'].std()
     try:
-
-        df_training_value = (df_train['use_to_train'])
-        # df_training_value = (df_train['use_to_train'] - training_mean).div(training_std)
+        # df_training_value = (df_train['use_to_train'])
+        df_training_value = (df_train['use_to_train'] - training_mean).div(training_std)
     except ZeroDivisionError:
         df_training_value = 0
         print("---------Unknown Exception Occurred!!!-----------")
     print("Number of training samples:", len(df_training_value))
     print(df_training_value.values)
 
-    TIME_STEPS = 200
+    TIME_STEPS = 2
 
     # Generated training sequences for use in the model.
     def create_sequences(values, time_steps=TIME_STEPS):
@@ -99,7 +96,7 @@ if __name__ == '__main__':
         return np.stack(output)
 
 
-    x_train = create_sequences(df_training_value.values[0])
+    x_train = create_sequences(df_training_value.values)
 
     print("Training input shape: ", x_train.shape)
 
@@ -128,21 +125,21 @@ if __name__ == '__main__':
 
     print(model.summary())
 
-    train_data = tf.data.Dataset.from_tensor_slices((x_train, x_train))
-    valid_data = tf.data.Dataset.from_tensor_slices((x_train, x_train))
+    # train_data = tf.data.Dataset.from_tensor_slices((x_train, x_train))
+    # valid_data = tf.data.Dataset.from_tensor_slices((x_train, x_train))
 
-    history = model.fit(train_data, epochs=10, validation_data=valid_data)
+    # history = model.fit(x_train, x_train, epochs=10, validation_split=0.1)
 
-    # history = model.fit(
-    #     x_train,
-    #     x_train,
-    #     epochs=50,
-    #     batch_size=128,
-    #     validation_split=0.1,
-    #     callbacks=[
-    #         keras.callbacks.EarlyStopping(monitor="val_loss", patience=5, mode="min")
-    #     ],
-    # )
+    history = model.fit(
+        x_train,
+        x_train,
+        epochs=50,
+        batch_size=128,
+        validation_split=0.1,
+        callbacks=[
+            keras.callbacks.EarlyStopping(monitor="val_loss", patience=5, mode="min")
+        ],
+    )
 
     plt.plot(history.history["loss"], label="Training Loss")
     plt.plot(history.history["val_loss"], label="Validation Loss")
